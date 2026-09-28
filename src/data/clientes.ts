@@ -1,7 +1,7 @@
 // Datos estáticos del directorio de clientes. Cuando exista el backend, esto se
 // reemplaza por llamadas a la API (services/api.ts) manteniendo los mismos tipos.
 // Es la misma fuente que usa el buscador del paso 1 al crear una cotización
-// (FormularioCotizacion.vue), así que un cliente nuevo aquí ya aparece allá.
+// (FormularioCotizacion.tsx), así que un cliente nuevo aquí ya aparece allá.
 
 export interface ClienteRegistrado {
   idCliente: number
@@ -64,7 +64,7 @@ export const CLIENTES: ClienteRegistrado[] = [
 let siguienteId = Math.max(...CLIENTES.map((c) => c.idCliente)) + 1
 
 // Alta en memoria: mientras no exista el backend, un cliente nuevo solo vive
-// en esta pestaña. clienteVacio() la usa FormularioCliente.vue.
+// en esta pestaña. clienteVacio() la usa FormularioCliente.tsx.
 export const clienteVacio = (): Omit<ClienteRegistrado, 'idCliente'> => ({
   nombreComercial: '',
   tipoCliente: 'Empresa',
