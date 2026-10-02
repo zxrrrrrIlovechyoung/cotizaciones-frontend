@@ -18,7 +18,7 @@
 }
 
 .ui-textarea {
-  min-height: 72px;
+  min-height: 58px;
   resize: vertical;
 }
 
@@ -53,12 +53,26 @@
 
 .ui-label {
   display: block;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   color: var(--muted);
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
+}
+
+.form .ui-input,
+.form .ui-select {
+  min-height: 36px;
+  padding: 8px 10px;
+  font-size: 13px;
+  border-radius: 8px;
+}
+
+.form .ui-textarea {
+  padding: 8px 10px;
+  font-size: 13px;
+  border-radius: 8px;
 }
 
 .ui-check {

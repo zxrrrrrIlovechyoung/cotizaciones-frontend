@@ -21,31 +21,34 @@ const MESES = [
 const mesActual = new Date().getMonth() + 1
 const anioActual = new Date().getFullYear()
 const anios = Array.from(
-  new Set([...COTIZACIONES.map((c) => obtenerAnio(c.vigenciaHasta)).filter((a): a is number => Boolean(a)), anioActual]),
+  new Set([...COTIZACIONES.map((c) => obtenerAnio(c.fechaCreacion)).filter((a): a is number => Boolean(a)), anioActual]),
 ).sort((a, b) => Number(b) - Number(a))
 
 export default function ListaCotizaciones({ onAbrir }: { onAbrir: (cotizacion: Cotizacion) => void; onNueva: () => void }) {
   const [mes, setMes] = useState(String(mesActual))
   const [anio, setAnio] = useState(String(anioActual))
+  const [folio, setFolio] = useState('')
   const [razonSocial, setRazonSocial] = useState('')
   const [rfc, setRfc] = useState('')
   const [nombreCliente, setNombreCliente] = useState('')
   const [pagina, setPagina] = useState(1)
   const filtradas = useMemo(() => {
     const razon = normalizar(razonSocial)
+    const folioFiltro = normalizar(folio)
     const rfcFiltro = normalizar(rfc)
     const cliente = normalizar(nombreCliente)
 
     return COTIZACIONES.filter((c) => {
       if (c.estado === 'Eliminada') return false
-      if (mes && obtenerMes(c.vigenciaHasta) !== Number(mes)) return false
-      if (anio && obtenerAnio(c.vigenciaHasta) !== Number(anio)) return false
+      if (mes && obtenerMes(c.fechaCreacion) !== Number(mes)) return false
+      if (anio && obtenerAnio(c.fechaCreacion) !== Number(anio)) return false
+      if (folioFiltro && !normalizar(c.folio).includes(folioFiltro)) return false
       if (razon && !normalizar(c.razonSocial || c.nombreComercial).includes(razon)) return false
       if (rfcFiltro && !normalizar(c.rfc).includes(rfcFiltro)) return false
       if (cliente && !normalizar(c.nombreCliente || c.atencionA || c.nombreComercial).includes(cliente)) return false
       return true
     })
-  }, [anio, mes, nombreCliente, razonSocial, rfc])
+  }, [anio, folio, mes, nombreCliente, razonSocial, rfc])
   const totalPaginas = Math.max(1, Math.ceil(filtradas.length / PAGE_SIZE))
   const paginaActual = Math.min(pagina, totalPaginas)
   const visibles = filtradas.slice((paginaActual - 1) * PAGE_SIZE, paginaActual * PAGE_SIZE)
@@ -67,6 +70,10 @@ export default function ListaCotizaciones({ onAbrir }: { onAbrir: (cotizacion: C
             <option value="">Todos</option>
             {anios.map((a) => <option key={a} value={a}>{a}</option>)}
           </select>
+        </label>
+        <label className="filtro filtro--folio">
+          <span>Folio</span>
+          <input value={folio} placeholder="0041" onChange={(e) => { setFolio(e.target.value.replace(/\D/g, '')); setPagina(1) }} />
         </label>
         <label className="filtro">
           <span>Razón social</span>
