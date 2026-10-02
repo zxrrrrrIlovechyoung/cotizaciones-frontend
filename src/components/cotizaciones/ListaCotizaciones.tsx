@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 
 import { COTIZACIONES, dinero, fecha, type Cotizacion } from '@/data/cotizaciones'
 
-const PAGE_SIZE = 5
+const PAGE_SIZE = 10
 const MESES = [
   { value: 1, label: 'Enero' },
   { value: 2, label: 'Febrero' },
@@ -24,7 +24,7 @@ const anios = Array.from(
   new Set([...COTIZACIONES.map((c) => obtenerAnio(c.vigenciaHasta)).filter((a): a is number => Boolean(a)), anioActual]),
 ).sort((a, b) => Number(b) - Number(a))
 
-export default function ListaCotizaciones({ onAbrir, onNueva }: { onAbrir: (cotizacion: Cotizacion) => void; onNueva: () => void }) {
+export default function ListaCotizaciones({ onAbrir }: { onAbrir: (cotizacion: Cotizacion) => void; onNueva: () => void }) {
   const [mes, setMes] = useState(String(mesActual))
   const [anio, setAnio] = useState(String(anioActual))
   const [razonSocial, setRazonSocial] = useState('')
@@ -50,18 +50,9 @@ export default function ListaCotizaciones({ onAbrir, onNueva }: { onAbrir: (coti
   const paginaActual = Math.min(pagina, totalPaginas)
   const visibles = filtradas.slice((paginaActual - 1) * PAGE_SIZE, paginaActual * PAGE_SIZE)
 
-  function limpiarFiltros() {
-    setMes(String(mesActual))
-    setAnio(String(anioActual))
-    setRazonSocial('')
-    setRfc('')
-    setNombreCliente('')
-    setPagina(1)
-  }
-
   return (
     <div className="ws">
-      <div className="ws__head"><div className="ws__titles"><h2>Cotizaciones</h2><p>Refacciones, mano de obra y servicios para clientes del taller</p></div><button className="btn btn--primary" onClick={onNueva}><i className="mdi mdi-file-plus-outline" /> Nueva cotización</button></div>
+      <div className="ws__head ws__head--sinAccion"><div className="ws__titles"><h2>Cotizaciones</h2><p>Refacciones, mano de obra y servicios para clientes del taller</p></div></div>
       <div className="filtros filtros--cotizaciones">
         <label className="filtro">
           <span>Mes</span>
@@ -89,10 +80,10 @@ export default function ListaCotizaciones({ onAbrir, onNueva }: { onAbrir: (coti
           <span>Cliente</span>
           <input value={nombreCliente} placeholder="Nombre del cliente" onChange={(e) => { setNombreCliente(e.target.value); setPagina(1) }} />
         </label>
-        <button className="filtros__refrescar" title="Restablecer filtros" onClick={limpiarFiltros}><i className="mdi mdi-refresh" /></button>
+        <button className="filtros__buscarBtn" type="button" onClick={() => setPagina(1)}><i className="mdi mdi-magnify" /><span>Buscar</span></button>
       </div>
       <div className="ws__body">
-        {visibles.length === 0 ? <div className="vacio"><i className="mdi mdi-package-variant-closed" /><div className="vacio__titulo">No hay cotizaciones que coincidan</div><div className="vacio__texto">Ajusta los filtros.</div></div> : <div className="lista">{visibles.map((c, i) => <button key={c.id} className="fila fila--cotizacion" style={{ animationDelay: `${Math.min(i, 10) * 0.04}s` }} onClick={() => onAbrir(c)}><div className="fila__folio"><strong>{c.folio}</strong><span>Versión {c.version}</span></div><div className="fila__cliente"><strong>{c.razonSocial}</strong><span>{c.rfc} · {c.nombreCliente}</span></div><div className="fila__total"><strong>{dinero(c.total, c.moneda)}</strong><span>{fecha(c.vigenciaHasta)}</span></div><i className="mdi mdi-chevron-right fila__chevron" /></button>)}</div>}
+        {visibles.length === 0 ? <div className="vacio"><i className="mdi mdi-package-variant-closed" /><div className="vacio__titulo">No hay cotizaciones que coincidan</div><div className="vacio__texto">Ajusta los filtros.</div></div> : <div className="lista">{visibles.map((c, i) => <button key={c.id} className="fila fila--cotizacion" style={{ animationDelay: `${Math.min(i, 10) * 0.04}s` }} onClick={() => onAbrir(c)}><div className="fila__fecha"><span>Creación</span><strong>{fecha(c.fechaCreacion)}</strong></div><div className="fila__folio"><span>Folio</span><strong>{c.folio}</strong></div><div className="fila__cliente"><span>Razón social</span><strong>{c.razonSocial}</strong></div><div className="fila__rfc"><span>RFC</span><strong>{c.rfc}</strong></div><div className="fila__nombre"><span>Nombre</span><strong>{c.nombreCliente}</strong></div><div className="fila__montos"><div><span>Utilidad</span><strong>{dinero(c.utilidadEstimada, c.moneda)}</strong></div><div><span>Costo</span><strong>{dinero(c.costo, c.moneda)}</strong></div><div><span>Total</span><strong>{dinero(c.total, c.moneda)}</strong></div></div><i className="mdi mdi-chevron-right fila__chevron" /></button>)}</div>}
         {totalPaginas > 1 && <Paginacion paginaActual={paginaActual} totalPaginas={totalPaginas} total={filtradas.length} onPagina={setPagina} />}
       </div>
     </div>
