@@ -1,12 +1,16 @@
+import type { ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '@/stores/auth'
 
 interface AppHeaderProps {
   onCrearCotizacion?: () => void
+  mostrarCrearCotizacion?: boolean
+  contextual?: ReactNode
+  accionAntesPerfil?: ReactNode
 }
 
-export default function AppHeader({ onCrearCotizacion }: AppHeaderProps) {
+export default function AppHeader({ onCrearCotizacion, mostrarCrearCotizacion = true, contextual, accionAntesPerfil }: AppHeaderProps) {
   const navigate = useNavigate()
   const { user } = useAuth()
   const nombre = user?.nombre ?? 'Usuario'
@@ -19,11 +23,17 @@ export default function AppHeader({ onCrearCotizacion }: AppHeaderProps) {
 
   return (
     <header className="topbar">
+      {contextual ? <div className="topbar__context">{contextual}</div> : null}
+
       <div className="topbar__actions">
-        <button type="button" className="topbar__create" onClick={crearCotizacion}>
-          <i className="mdi mdi-plus" />
-          <span>Crear cotización</span>
-        </button>
+        {mostrarCrearCotizacion ? (
+          <button type="button" className="topbar__create" onClick={crearCotizacion}>
+            <i className="mdi mdi-plus" />
+            <span>Crear cotización</span>
+          </button>
+        ) : null}
+
+        {accionAntesPerfil}
 
         <NavLink to="/mi-cuenta" className="topbar__account">
           <div className="topbar__accountText">
