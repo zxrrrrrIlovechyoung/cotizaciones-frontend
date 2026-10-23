@@ -2,13 +2,15 @@ import { useState } from 'react'
 
 import CampoForm from '@/components/cotizaciones/CampoForm'
 import { TIPOS_CLIENTE, formatTel, toTitleCase } from '@/data/cotizaciones'
-import { clienteVacio, registrarCliente } from '@/data/clientes'
+import { clienteVacio } from '@/data/clientes'
+import { crearCliente } from '@/services/clientes'
 
 export default function FormularioCliente({ onVolver, onGuardado }: { onVolver: () => void; onGuardado: () => void }) {
   const [formulario, setFormulario] = useState(clienteVacio())
   const [errores, setErrores] = useState<Record<string, string>>({})
   const [guardando, setGuardando] = useState(false)
   const [guardado, setGuardado] = useState(false)
+  const [errorGuardar, setErrorGuardar] = useState('')
 
   function update<K extends keyof typeof formulario>(campo: K, valor: (typeof formulario)[K]) {
     setFormulario((actual) => ({ ...actual, [campo]: valor }))
@@ -27,11 +29,16 @@ export default function FormularioCliente({ onVolver, onGuardado }: { onVolver: 
     event.preventDefault()
     if (guardando || !validar()) return
     setGuardando(true)
-    await new Promise((r) => setTimeout(r, 500))
-    registrarCliente({ ...formulario })
-    setGuardando(false)
-    setGuardado(true)
-    setTimeout(onGuardado, 1000)
+    setErrorGuardar('')
+    try {
+      await crearCliente({ ...formulario })
+      setGuardado(true)
+      setTimeout(onGuardado, 1000)
+    } catch {
+      setErrorGuardar('No se pudo guardar el cliente. Revisa tu conexión e intenta de nuevo.')
+    } finally {
+      setGuardando(false)
+    }
   }
 
   return (
@@ -42,8 +49,9 @@ export default function FormularioCliente({ onVolver, onGuardado }: { onVolver: 
         <div className="grid grid--2"><CampoForm label="Atención a" ayuda="Nombre de quien atiende o autoriza en el taller."><input value={formulario.atencionA} className="ui-input" placeholder="Ej. Julio Navarro" maxLength={45} onChange={(e) => update('atencionA', toTitleCase(e.target.value))} /></CampoForm><CampoForm label="RFC (opcional)"><input value={formulario.rfc} className="ui-input rfc" placeholder="Ej. XAXX010101000" maxLength={13} onChange={(e) => update('rfc', e.target.value.toUpperCase().replace(/[^A-Z0-9&]/g, ''))} /></CampoForm></div>
         <div className="grid grid--2"><CampoForm label="Correo electrónico (opcional)" error={errores.correoContacto}><input value={formulario.correoContacto} type="email" className={`ui-input ${errores.correoContacto ? 'is-error' : ''}`} placeholder="contacto@cliente.com" maxLength={40} onChange={(e) => update('correoContacto', e.target.value)} /></CampoForm><CampoForm label="Teléfono *" error={errores.telefonoContacto}><input value={formulario.telefonoContacto} className={`ui-input ${errores.telefonoContacto ? 'is-error' : ''}`} placeholder="773 185 1363" inputMode="numeric" maxLength={12} onChange={(e) => update('telefonoContacto', formatTel(e.target.value))} /></CampoForm></div>
       </section>
+      {errorGuardar && <div className="form__error"><i className="mdi mdi-alert-circle-outline" /> {errorGuardar}</div>}
       <div className="nav"><button type="button" className="ui-btn" onClick={onVolver}>Cancelar</button><button type="submit" className="ui-btn ui-btn--primary guardar" disabled={guardando}>{guardando ? <span className="spinner" /> : 'Registrar cliente'}</button></div>
-      {guardado && <div className="exito"><div className="exito__caja"><div className="exito__circulo"><i className="mdi mdi-check" /></div><div className="exito__titulo">Cliente registrado con éxito</div><div className="exito__nota">(demo — todavía no se guarda en base de datos)</div></div></div>}
+      {guardado && <div className="exito"><div className="exito__caja"><div className="exito__circulo"><i className="mdi mdi-check" /></div><div className="exito__titulo">Cliente registrado con éxito</div><div className="exito__nota">Guardado en la base de datos</div></div></div>}
     </form>
   )
 }
