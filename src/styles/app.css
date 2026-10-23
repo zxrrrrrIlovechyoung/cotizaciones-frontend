@@ -72,6 +72,28 @@ button.topbar__account { background: transparent; font: inherit; cursor: pointer
 .topbar__menuItem--danger:hover { background: var(--danger-bg); }
 .topbar__menuSep { height: 1px; background: var(--border); margin: 4px 2px; }
 
+/* Mi cuenta */
+.cuenta { max-width: 640px; display: flex; flex-direction: column; gap: 16px; }
+.cuenta__card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: 22px; }
+.cuenta__perfil { display: flex; align-items: center; gap: 16px; }
+.cuenta__avatar { width: 64px; height: 64px; border-radius: 50%; background: var(--blue-light); color: var(--blue); border: 1px solid var(--blue-mid); display: grid; place-items: center; font-size: 22px; font-weight: 800; flex-shrink: 0; }
+.cuenta__avatar .mdi { font-size: 32px; }
+.cuenta__ident { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.cuenta__ident strong { font-size: 18px; color: var(--navy); }
+.cuenta__ident > span { font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cuenta__rol { align-self: flex-start; margin-top: 4px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; color: var(--blue); background: var(--blue-light); border: 1px solid var(--blue-mid); border-radius: 999px; padding: 2px 10px; }
+.cuenta__datos { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border); }
+.cuenta__datos > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.cuenta__datos span { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .3px; color: var(--muted); }
+.cuenta__datos strong { font-size: 14px; color: var(--navy); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cuenta__cardTitulo { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 800; color: var(--navy); }
+.cuenta__cardTitulo .mdi { font-size: 18px; color: var(--muted); }
+.cuenta__nota { font-size: 13px; color: var(--muted); margin: 8px 0 16px; }
+.cuenta__logout { border-color: var(--danger-bd); color: var(--danger); }
+.cuenta__logout:hover { background: var(--danger-bg); }
+.cuenta__logout .mdi { font-size: 18px; }
+@media (max-width: 700px) { .cuenta__datos { grid-template-columns: 1fr; } }
+
 .login__main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; }
 .login__card { width: 100%; max-width: 350px; background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 44px 36px 34px; }
 .login__brand { margin-bottom: 40px; }
