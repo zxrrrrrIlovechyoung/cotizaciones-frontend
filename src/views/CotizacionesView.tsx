@@ -6,6 +6,7 @@ import DetalleCotizacion from '@/components/cotizaciones/DetalleCotizacion'
 import FormularioCotizacion from '@/components/cotizaciones/FormularioCotizacion'
 import ListaCotizaciones from '@/components/cotizaciones/ListaCotizaciones'
 import type { Cotizacion } from '@/data/cotizaciones'
+import { eliminarCotizacion } from '@/services/cotizaciones'
 
 export default function CotizacionesView() {
   const location = useLocation()
@@ -33,9 +34,15 @@ export default function CotizacionesView() {
     setVista('lista')
   }
 
-  function eliminar() {
-    if (seleccionada) seleccionada.estado = 'Eliminada'
-    volver()
+  async function eliminar() {
+    if (!seleccionada) return
+    // El backend hace el borrado suave (marca 'Eliminada'). Al volver al listado,
+    // este se recarga desde la API y la cotización ya no aparece.
+    try {
+      await eliminarCotizacion(seleccionada.id)
+    } finally {
+      volver()
+    }
   }
 
   return (

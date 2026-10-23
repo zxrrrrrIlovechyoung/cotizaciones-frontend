@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import CampoForm from './CampoForm'
 import ResumenTotales from './ResumenTotales'
@@ -11,20 +11,37 @@ import {
   partidaVacia,
   toTitleCase,
 } from '@/data/cotizaciones'
-import { CLIENTES, type ClienteRegistrado } from '@/data/clientes'
+import { type ClienteRegistrado } from '@/data/clientes'
+import { crearCotizacion } from '@/services/cotizaciones'
+import { listarClientes } from '@/services/clientes'
 
 export default function FormularioCotizacion({ onVolver, onGuardado }: { onVolver: () => void; onGuardado: () => void }) {
   const [formulario, setFormulario] = useState(formularioVacio())
   const [errores, setErrores] = useState<Record<string, string>>({})
   const [guardando, setGuardando] = useState(false)
   const [guardado, setGuardado] = useState(false)
+  const [errorGuardar, setErrorGuardar] = useState('')
   const [ligarCliente, setLigarCliente] = useState(false)
   const [clienteBusqueda, setClienteBusqueda] = useState('')
   const [clienteSeleccionado, setClienteSeleccionado] = useState<ClienteRegistrado | null>(null)
+  const [clientes, setClientes] = useState<ClienteRegistrado[]>([])
   const hoy = new Date().toISOString().slice(0, 10)
   const identidadBloqueada = Boolean(clienteSeleccionado)
+
+  // Clientes reales desde la API (para el buscador "Ligar a cliente registrado").
+  // Si falla, el buscador simplemente no sugiere y el cliente se captura a mano.
+  useEffect(() => {
+    let activo = true
+    listarClientes()
+      .then((datos) => activo && setClientes(datos))
+      .catch(() => {})
+    return () => {
+      activo = false
+    }
+  }, [])
+
   const sugeridos = ligarCliente && clienteBusqueda.trim() && !clienteSeleccionado
-    ? CLIENTES.filter((c) => {
+    ? clientes.filter((c) => {
         const q = clienteBusqueda.trim().toLowerCase()
         return String(c.idCliente).includes(q) || c.nombreComercial.toLowerCase().includes(q) || c.rfc.toLowerCase().includes(q) || c.correoContacto.toLowerCase().includes(q) || c.telefonoContacto.replace(/\D/g, '').includes(q.replace(/\D/g, ''))
       }).slice(0, 6)
@@ -93,10 +110,16 @@ export default function FormularioCotizacion({ onVolver, onGuardado }: { onVolve
     if (!validarPaso1()) return
     if (!validarPaso2()) return
     setGuardando(true)
-    await new Promise((r) => setTimeout(r, 700))
-    setGuardando(false)
-    setGuardado(true)
-    setTimeout(onGuardado, 1200)
+    setErrorGuardar('')
+    try {
+      await crearCotizacion(formulario)
+      setGuardado(true)
+      setTimeout(onGuardado, 1200)
+    } catch {
+      setErrorGuardar('No se pudo guardar la cotización. Revisa tu conexión e intenta de nuevo.')
+    } finally {
+      setGuardando(false)
+    }
   }
 
   return (
@@ -105,9 +128,10 @@ export default function FormularioCotizacion({ onVolver, onGuardado }: { onVolve
         <section className="panel form-section"><div className="panel__titulo"><i className="mdi mdi-office-building-outline" /><span>¿A quién va dirigida la cotización?</span></div><div className="ligar"><div className="ligar__cabecera"><div><div className="ligar__label">Ligar a cliente registrado</div><div className="ligar__ayuda">{ligarCliente ? 'Busca y selecciona un cliente existente.' : 'Activa esta opción para buscar un cliente del sistema.'}</div></div><label className="ligar__check"><input checked={ligarCliente} type="checkbox" className="ui-check" onChange={(e) => { setLigarCliente(e.target.checked); if (!e.target.checked) { setClienteBusqueda(''); desvincularCliente() } }} />Buscar cliente</label></div>{errores.clienteRegistrado && <div className="ligar__error">{errores.clienteRegistrado}</div>}<div className={`buscador ${!ligarCliente ? 'is-off' : ''}`}><i className="mdi mdi-magnify" /><input value={clienteBusqueda} className="ui-input" disabled={!ligarCliente} placeholder={ligarCliente ? 'Buscar por código, nombre, RFC, correo o teléfono' : 'Activa Buscar cliente para habilitar la búsqueda'} onChange={(e) => setClienteBusqueda(e.target.value)} />{sugeridos.length > 0 && <div className="sugerencias">{sugeridos.map((c) => <button key={c.idCliente} type="button" className="sugerencia" onClick={() => seleccionarCliente(c)}><span className="sugerencia__info"><strong>{c.nombreComercial}</strong><span>Código {c.idCliente} · {c.tipoCliente} · {c.rfc} · {c.correoContacto}</span></span><i className="mdi mdi-chevron-right" /></button>)}</div>}</div>{clienteSeleccionado && <div className="ligado"><div className="ligado__info"><div className="ligado__id">Ligado a cliente #{clienteSeleccionado.idCliente}</div><div className="ligado__nombre">{clienteSeleccionado.nombreComercial}</div></div><button type="button" className="ligado__quitar" onClick={desvincularCliente}>Quitar liga</button></div>}</div><div className="grid grid--tipo"><CampoForm label="Tipo de cliente"><select value={formulario.tipoCliente} className="ui-select" disabled={identidadBloqueada} onChange={(e) => update('tipoCliente', e.target.value)}>{TIPOS_CLIENTE.map((t) => <option key={t}>{t}</option>)}</select></CampoForm><CampoForm label="Nombre de la empresa / cliente *" error={errores.nombreComercial}><input value={formulario.nombreComercial} className={`ui-input ${errores.nombreComercial ? 'is-error' : ''}`} disabled={identidadBloqueada} maxLength={45} onChange={(e) => update('nombreComercial', toTitleCase(e.target.value))} /></CampoForm></div><div className="grid grid--2"><CampoForm label="Atención a *" error={errores.atencionA}><input value={formulario.atencionA} className={`ui-input ${errores.atencionA ? 'is-error' : ''}`} disabled={identidadBloqueada} maxLength={45} onChange={(e) => update('atencionA', toTitleCase(e.target.value))} /></CampoForm><CampoForm label="RFC (opcional)"><input value={formulario.rfc} className="ui-input rfc" maxLength={13} onChange={(e) => update('rfc', e.target.value.toUpperCase().replace(/[^A-Z0-9&]/g, ''))} /></CampoForm></div><div className="grid grid--2"><CampoForm label="Correo electrónico (opcional)" error={errores.correoContacto}><input value={formulario.correoContacto} type="email" className={`ui-input ${errores.correoContacto ? 'is-error' : ''}`} maxLength={40} onChange={(e) => update('correoContacto', e.target.value)} /></CampoForm><CampoForm label="Teléfono *" error={errores.telefonoContacto}><input value={formulario.telefonoContacto} className={`ui-input ${errores.telefonoContacto ? 'is-error' : ''}`} inputMode="numeric" maxLength={12} onChange={(e) => update('telefonoContacto', formatTel(e.target.value))} /></CampoForm></div><CampoForm label="Cotización válida hasta *" error={errores.vigenciaHasta}><input value={formulario.vigenciaHasta} type="date" min={hoy} className={`ui-input fecha ${errores.vigenciaHasta ? 'is-error' : ''}`} onChange={(e) => update('vigenciaHasta', e.target.value)} /></CampoForm></section>
         <section className="productos form-section"><label className="iva"><input checked={formulario.preciosIncluyenIva} type="checkbox" className="ui-check" onChange={(e) => update('preciosIncluyenIva', e.target.checked)} />Los precios capturados ya incluyen IVA</label>{formulario.partidas.map((p, i) => <div className="tarjeta" key={i}><header className="tarjeta__head"><span className="tarjeta__num">{i + 1}</span><span className="tarjeta__nombre">{p.descripcion || `Partida ${i + 1}`}</span>{formulario.partidas.length > 1 && <button type="button" className="tarjeta__borrar" onClick={() => setFormulario((actual) => ({ ...actual, partidas: actual.partidas.filter((_, idx) => idx !== i) }))}><i className="mdi mdi-trash-can-outline" /></button>}</header><div className="tarjeta__cuerpo tarjeta__cuerpo--simple"><div className="grid grid--sku"><CampoForm label="SKU"><input value={p.sku} className="ui-input ui-input--sm" maxLength={30} onChange={(e) => updatePartida(i, 'sku', e.target.value.toUpperCase())} /></CampoForm><CampoForm label="Producto o servicio *" error={errores[`partidas.${i}.descripcion`]}><input value={p.descripcion} className={`ui-input ui-input--sm ${errores[`partidas.${i}.descripcion`] ? 'is-error' : ''}`} maxLength={100} onChange={(e) => updatePartida(i, 'descripcion', toTitleCase(e.target.value))} /></CampoForm></div><div className="grid grid--precios"><CampoForm label="Cantidad *" error={errores[`partidas.${i}.cantidad`]}><input value={p.cantidad} type="number" min="1" className={`ui-input ui-input--sm ${errores[`partidas.${i}.cantidad`] ? 'is-error' : ''}`} onChange={(e) => updatePartida(i, 'cantidad', e.target.value)} /></CampoForm><CampoForm label="Unidad"><select value={p.unidad} className="ui-select ui-select--sm" onChange={(e) => updatePartida(i, 'unidad', e.target.value)}>{UNIDADES.map((u) => <option key={u.value} value={u.value}>{u.label}</option>)}</select></CampoForm><CampoForm label="Costo compra / u. *" error={errores[`partidas.${i}.precioUnitarioCompra`]}><input value={p.precioUnitarioCompra} type="text" inputMode="decimal" className={`ui-input ui-input--sm ${errores[`partidas.${i}.precioUnitarioCompra`] ? 'is-error' : ''}`} onChange={(e) => /^\d*\.?\d{0,2}$/.test(e.target.value) && updatePartida(i, 'precioUnitarioCompra', e.target.value)} /></CampoForm><CampoForm label="Precio cliente / u. *" error={errores[`partidas.${i}.precioUnitarioVenta`]}><input value={p.precioUnitarioVenta} type="text" inputMode="decimal" className={`ui-input ui-input--sm ${errores[`partidas.${i}.precioUnitarioVenta`] ? 'is-error' : ''}`} onChange={(e) => /^\d*\.?\d{0,2}$/.test(e.target.value) && updatePartida(i, 'precioUnitarioVenta', e.target.value)} /></CampoForm></div></div></div>)}{formulario.partidas.length >= MAX_PARTIDAS ? <div className="tope">Llegaste al máximo de {MAX_PARTIDAS} partidas por cotización.</div> : <button type="button" className="agregar-partida" onClick={() => setFormulario((actual) => ({ ...actual, partidas: [...actual.partidas, partidaVacia()] }))}><i className="mdi mdi-plus" /> Agregar otra partida</button>}</section>
         <section className="panel form-section"><div className="panel__titulo"><span>Condiciones comerciales</span></div><div className="grid grid--3"><CampoForm label="Moneda"><select value={formulario.moneda} className="ui-select" onChange={(e) => update('moneda', e.target.value)}><option>MXN</option><option>USD</option></select></CampoForm><CampoForm label="IVA general %" error={errores.porcentajeIva}><input value={formulario.porcentajeIva} type="number" min="0" max="100" className={`ui-input ${errores.porcentajeIva ? 'is-error' : ''}`} onChange={(e) => update('porcentajeIva', Number(e.target.value))} /></CampoForm><CampoForm label="Anticipo requerido %"><input value={formulario.porcentajeAnticipo} type="number" min="0" max="100" className="ui-input" onChange={(e) => update('porcentajeAnticipo', e.target.value === '' ? '' : Number(e.target.value))} /></CampoForm></div><CampoForm label="Plazo estimado de entrega *" error={errores.tiempoEntrega}><input value={formulario.tiempoEntrega} className={`ui-input ${errores.tiempoEntrega ? 'is-error' : ''}`} maxLength={100} onChange={(e) => update('tiempoEntrega', toTitleCase(e.target.value))} /></CampoForm><div className="grid grid--2"><CampoForm label="Condiciones de pago *" error={errores.condicionesPago}><textarea value={formulario.condicionesPago} className={`ui-textarea ${errores.condicionesPago ? 'is-error' : ''}`} onChange={(e) => update('condicionesPago', e.target.value)} /></CampoForm><CampoForm label="Notas adicionales"><textarea value={formulario.notasComerciales} className="ui-textarea" onChange={(e) => update('notasComerciales', e.target.value)} /></CampoForm><CampoForm label="Métodos de pago *" error={errores.metodosPago}><textarea value={formulario.metodosPago} className={`ui-textarea ${errores.metodosPago ? 'is-error' : ''}`} onChange={(e) => update('metodosPago', e.target.value)} /></CampoForm></div></section>
+        {errorGuardar && <div className="form__error"><i className="mdi mdi-alert-circle-outline" /> {errorGuardar}</div>}
         <div className="nav"><button type="button" className="ui-btn" onClick={onVolver}>Cancelar</button><button type="button" className="ui-btn ui-btn--primary guardar" disabled={guardando} onClick={guardar}>{guardando ? <span className="spinner" /> : <><i className="mdi mdi-check" /> Guardar cotización</>}</button></div>
       </div><ResumenTotales formulario={formulario} /></div>
-      {guardado && <div className="exito"><div className="exito__caja"><div className="exito__circulo"><i className="mdi mdi-check" /></div><div className="exito__titulo">Cotización creada con éxito</div><div className="exito__nota">(demo — todavía no se guarda en base de datos)</div></div></div>}
+      {guardado && <div className="exito"><div className="exito__caja"><div className="exito__circulo"><i className="mdi mdi-check" /></div><div className="exito__titulo">Cotización creada con éxito</div><div className="exito__nota">Guardado en la base de datos</div></div></div>}
     </form>
   )
 }

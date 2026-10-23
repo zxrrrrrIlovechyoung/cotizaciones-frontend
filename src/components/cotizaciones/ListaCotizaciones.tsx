@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
-import { COTIZACIONES, dinero, fecha, type Cotizacion } from '@/data/cotizaciones'
+import { dinero, fecha, type Cotizacion } from '@/data/cotizaciones'
+import { listarCotizaciones } from '@/services/cotizaciones'
 
 const PAGE_SIZE = 10
 const MESES = [
@@ -20,11 +21,11 @@ const MESES = [
 
 const mesActual = new Date().getMonth() + 1
 const anioActual = new Date().getFullYear()
-const anios = Array.from(
-  new Set([...COTIZACIONES.map((c) => obtenerAnio(c.fechaCreacion)).filter((a): a is number => Boolean(a)), anioActual]),
-).sort((a, b) => Number(b) - Number(a))
 
 export default function ListaCotizaciones({ onAbrir }: { onAbrir: (cotizacion: Cotizacion) => void; onNueva: () => void }) {
+  const [cotizaciones, setCotizaciones] = useState<Cotizacion[]>([])
+  const [cargando, setCargando] = useState(true)
+  const [error, setError] = useState('')
   const [mes, setMes] = useState(String(mesActual))
   const [anio, setAnio] = useState(String(anioActual))
   const [folio, setFolio] = useState('')
@@ -32,13 +33,36 @@ export default function ListaCotizaciones({ onAbrir }: { onAbrir: (cotizacion: C
   const [rfc, setRfc] = useState('')
   const [nombreCliente, setNombreCliente] = useState('')
   const [pagina, setPagina] = useState(1)
+
+  useEffect(() => {
+    let activo = true
+    ;(async () => {
+      try {
+        const datos = await listarCotizaciones()
+        if (activo) setCotizaciones(datos)
+      } catch {
+        if (activo) setError('No se pudieron cargar las cotizaciones. Verifica tu conexión e intenta de nuevo.')
+      } finally {
+        if (activo) setCargando(false)
+      }
+    })()
+    return () => {
+      activo = false
+    }
+  }, [])
+
+  const anios = useMemo(
+    () => Array.from(new Set([...cotizaciones.map((c) => obtenerAnio(c.fechaCreacion)).filter((a): a is number => Boolean(a)), anioActual])).sort((a, b) => Number(b) - Number(a)),
+    [cotizaciones],
+  )
+
   const filtradas = useMemo(() => {
     const razon = normalizar(razonSocial)
     const folioFiltro = normalizar(folio)
     const rfcFiltro = normalizar(rfc)
     const cliente = normalizar(nombreCliente)
 
-    return COTIZACIONES.filter((c) => {
+    return cotizaciones.filter((c) => {
       if (c.estado === 'Eliminada') return false
       if (mes && obtenerMes(c.fechaCreacion) !== Number(mes)) return false
       if (anio && obtenerAnio(c.fechaCreacion) !== Number(anio)) return false
@@ -48,7 +72,7 @@ export default function ListaCotizaciones({ onAbrir }: { onAbrir: (cotizacion: C
       if (cliente && !normalizar(c.nombreCliente || c.atencionA || c.nombreComercial).includes(cliente)) return false
       return true
     })
-  }, [anio, folio, mes, nombreCliente, razonSocial, rfc])
+  }, [anio, cotizaciones, folio, mes, nombreCliente, razonSocial, rfc])
   const totalPaginas = Math.max(1, Math.ceil(filtradas.length / PAGE_SIZE))
   const paginaActual = Math.min(pagina, totalPaginas)
   const visibles = filtradas.slice((paginaActual - 1) * PAGE_SIZE, paginaActual * PAGE_SIZE)
@@ -90,8 +114,11 @@ export default function ListaCotizaciones({ onAbrir }: { onAbrir: (cotizacion: C
         <button className="filtros__buscarBtn" type="button" onClick={() => setPagina(1)}><i className="mdi mdi-magnify" /><span>Buscar</span></button>
       </div>
       <div className="ws__body">
-        {visibles.length === 0 ? <div className="vacio"><i className="mdi mdi-package-variant-closed" /><div className="vacio__titulo">No hay cotizaciones que coincidan</div><div className="vacio__texto">Ajusta los filtros.</div></div> : <div className="lista">{visibles.map((c, i) => <button key={c.id} className="fila fila--cotizacion" style={{ animationDelay: `${Math.min(i, 10) * 0.04}s` }} onClick={() => onAbrir(c)}><div className="fila__fecha"><span>Creación</span><strong>{fecha(c.fechaCreacion)}</strong></div><div className="fila__folio"><span>Folio</span><strong>{c.folio}</strong></div><div className="fila__cliente"><span>Razón social</span><strong>{c.razonSocial}</strong></div><div className="fila__rfc"><span>RFC</span><strong>{c.rfc}</strong></div><div className="fila__nombre"><span>Nombre</span><strong>{c.nombreCliente}</strong></div><div className="fila__montos"><div><span>Utilidad</span><strong>{dinero(c.utilidadEstimada, c.moneda)}</strong></div><div><span>Costo</span><strong>{dinero(c.costo, c.moneda)}</strong></div><div><span>Total</span><strong>{dinero(c.total, c.moneda)}</strong></div></div><i className="mdi mdi-chevron-right fila__chevron" /></button>)}</div>}
-        {totalPaginas > 1 && <Paginacion paginaActual={paginaActual} totalPaginas={totalPaginas} total={filtradas.length} onPagina={setPagina} />}
+        {cargando ? <div className="vacio"><i className="mdi mdi-loading mdi-spin" /><div className="vacio__titulo">Cargando cotizaciones…</div></div>
+          : error ? <div className="vacio"><i className="mdi mdi-alert-circle-outline" /><div className="vacio__titulo">Ocurrió un problema</div><div className="vacio__texto">{error}</div></div>
+          : visibles.length === 0 ? <div className="vacio"><i className="mdi mdi-package-variant-closed" /><div className="vacio__titulo">No hay cotizaciones que coincidan</div><div className="vacio__texto">Ajusta los filtros.</div></div>
+          : <div className="lista">{visibles.map((c, i) => <button key={c.id} className="fila fila--cotizacion" style={{ animationDelay: `${Math.min(i, 10) * 0.04}s` }} onClick={() => onAbrir(c)}><div className="fila__fecha"><span>Creación</span><strong>{fecha(c.fechaCreacion)}</strong></div><div className="fila__folio"><span>Folio</span><strong>{c.folio}</strong></div><div className="fila__cliente"><span>Razón social</span><strong>{c.razonSocial}</strong></div><div className="fila__rfc"><span>RFC</span><strong>{c.rfc}</strong></div><div className="fila__nombre"><span>Nombre</span><strong>{c.nombreCliente}</strong></div><div className="fila__montos"><div><span>Utilidad</span><strong>{dinero(c.utilidadEstimada, c.moneda)}</strong></div><div><span>Costo</span><strong>{dinero(c.costo, c.moneda)}</strong></div><div><span>Total</span><strong>{dinero(c.total, c.moneda)}</strong></div></div><i className="mdi mdi-chevron-right fila__chevron" /></button>)}</div>}
+        {!cargando && !error && totalPaginas > 1 && <Paginacion paginaActual={paginaActual} totalPaginas={totalPaginas} total={filtradas.length} onPagina={setPagina} />}
       </div>
     </div>
   )
