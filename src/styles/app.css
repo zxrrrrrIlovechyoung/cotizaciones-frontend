@@ -58,6 +58,19 @@ button, input, select, textarea { font: inherit; }
 .topbar__accountText span { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--muted); }
 .topbar__avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--white); border: 2px solid var(--border); color: var(--muted); display: grid; place-items: center; font-size: 24px; flex-shrink: 0; overflow: hidden; }
 .topbar__avatar .mdi { line-height: 1; }
+.topbar__accountWrap { position: relative; }
+button.topbar__account { background: transparent; font: inherit; cursor: pointer; }
+.topbar__accountChevron { color: var(--muted); font-size: 18px; transition: transform .15s ease; }
+.topbar__accountChevron.is-open { transform: rotate(180deg); }
+.topbar__menu { position: absolute; top: calc(100% + 8px); right: 0; min-width: 212px; background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); padding: 6px; z-index: 50; display: flex; flex-direction: column; gap: 2px; animation: topbarMenuIn .12s ease-out; }
+@keyframes topbarMenuIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+.topbar__menuItem { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 12px; border: none; background: transparent; border-radius: var(--radius-sm); color: var(--navy); font-size: 13px; font-weight: 600; cursor: pointer; text-align: left; }
+.topbar__menuItem .mdi { font-size: 18px; color: var(--muted); }
+.topbar__menuItem:hover { background: var(--bg-soft); }
+.topbar__menuItem--danger { color: var(--danger); }
+.topbar__menuItem--danger .mdi { color: var(--danger); }
+.topbar__menuItem--danger:hover { background: var(--danger-bg); }
+.topbar__menuSep { height: 1px; background: var(--border); margin: 4px 2px; }
 
 .login__main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; }
 .login__card { width: 100%; max-width: 350px; background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 44px 36px 34px; }
