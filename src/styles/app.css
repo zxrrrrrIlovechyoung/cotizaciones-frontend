@@ -92,7 +92,16 @@ button.topbar__account { background: transparent; font: inherit; cursor: pointer
 .cuenta__logout { border-color: var(--danger-bd); color: var(--danger); }
 .cuenta__logout:hover { background: var(--danger-bg); }
 .cuenta__logout .mdi { font-size: 18px; }
-@media (max-width: 700px) { .cuenta__datos { grid-template-columns: 1fr; } }
+.cuenta__form { display: flex; flex-direction: column; gap: 14px; max-width: 360px; }
+.cuenta__field { display: flex; flex-direction: column; gap: 5px; }
+.cuenta__field > span { font-size: 12px; font-weight: 700; color: var(--text-soft); }
+.cuenta__fieldErr { color: var(--danger); font-size: 11.5px; }
+.cuenta__aviso { display: flex; align-items: center; gap: 7px; font-size: 12.5px; padding: 9px 12px; border-radius: var(--radius-sm); border: 1px solid; }
+.cuenta__aviso.is-ok { color: var(--success); background: var(--success-bg); border-color: var(--success-bd); }
+.cuenta__aviso.is-error { color: var(--danger); background: var(--danger-bg); border-color: var(--danger-bd); }
+.cuenta__aviso .mdi { font-size: 16px; }
+.cuenta__form .ui-btn--primary { align-self: flex-start; }
+@media (max-width: 700px) { .cuenta__datos { grid-template-columns: 1fr; } .cuenta__form { max-width: none; } }
 
 .login__main { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px; }
 .login__card { width: 100%; max-width: 350px; background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 44px 36px 34px; }
