@@ -1,12 +1,27 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import '@/styles/login.css'
 import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
 
 import { useAuth } from '@/stores/auth'
 
 const REMEMBER_KEY = 'rememberedEmail'
+const images = [
+  `${import.meta.env.BASE_URL}images/login/finance-0.jpg`,
+  `${import.meta.env.BASE_URL}images/login/finance-1.jpg`,
+  `${import.meta.env.BASE_URL}images/login/finance-2.jpg`,
+  `${import.meta.env.BASE_URL}images/login/finance-3.jpg`,
+  `${import.meta.env.BASE_URL}images/login/finance-4.jpg`,
+  `${import.meta.env.BASE_URL}images/login/finance-5.jpg`,
+]
 
 export default function LoginView() {
+  const [activeImage, setActiveImage] = useState(0)
+  useEffect(() => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const timer = window.setInterval(() => setActiveImage((index) => (index + 1) % images.length), 6500)
+    return () => window.clearInterval(timer)
+  }, [])
   const auth = useAuth()
   const navigate = useNavigate()
   const rememberedEmail = localStorage.getItem(REMEMBER_KEY) ?? ''
@@ -18,7 +33,6 @@ export default function LoginView() {
   const [logoOk, setLogoOk] = useState(true)
   const [remember, setRemember] = useState(Boolean(rememberedEmail))
   const currentYear = new Date().getFullYear()
-  const logoSrc = `${import.meta.env.BASE_URL}logo.png`
 
   function clearError(field: 'email' | 'password') {
     setErrs((current) => ({ ...current, [field]: '' }))
@@ -58,12 +72,20 @@ export default function LoginView() {
   }
 
   return (
-    <div className="login" data-theme="light">
+    <div className="login login--modern" data-theme="light">
+      <section className="login__visual" aria-label="Mercados financieros">
+        {images.map((src, index) => <img key={src} src={src} alt="" className={index === activeImage ? 'is-visible' : ''} aria-hidden="true" />)}
+        <div className="login__visual-shade" />
+        <div className="login__visual-copy"><span>GESTIÓN COMERCIAL</span><h2>Cada oportunidad<br />comienza aquí.</h2><p>Claridad en tus números.<br />Confianza en cada cotización.</p></div>
+        <div className="login__slides"><div>{images.map((_, index) => <button key={index} type="button" aria-label={`Ver imagen ${index + 1}`} aria-pressed={index === activeImage} className={index === activeImage ? 'is-active' : ''} onClick={() => setActiveImage(index)} />)}</div></div>
+      </section>
+      <section className="login__panel">
       <div className="login__main">
         <div className="login__card">
-          {logoOk && <div className="login__brand"><img src={logoSrc} alt="Sistema de Gestión de Cotizaciones" onError={() => setLogoOk(false)} /></div>}
-          <h1 className="login__title">Bienvenido</h1>
-          <p className="login__subtitle">Inicia sesión con tus credenciales</p>
+          {logoOk && <div className="login__brand"><img src={`${import.meta.env.BASE_URL}logo.png`} alt="Sistema de Gestión de Cotizaciones" onError={() => setLogoOk(false)} /></div>}
+          <span className="login__eyebrow">TU ESPACIO DE TRABAJO</span>
+          <h1 className="login__title">Bienvenido de nuevo</h1>
+          <p className="login__subtitle">Ingresa a tu cuenta para continuar.</p>
           <form onSubmit={handleSubmit}>
             <div className={`field ${errs.email ? 'field--error' : ''}`}>
               <div className="field__control">
@@ -80,14 +102,18 @@ export default function LoginView() {
               </div>
               {errs.password && <span className="field__error">{errs.password}</span>}
             </div>
-            <label className="remember"><input checked={remember} type="checkbox" disabled={loading} onChange={(e) => setRemember(e.target.checked)} /><span>Recordarme</span></label>
+            <div className="login__options">
+              <label className="remember"><input checked={remember} type="checkbox" disabled={loading} onChange={(e) => setRemember(e.target.checked)} /><span>Recordar correo</span></label>
+              <button type="button" className="help__link" disabled={loading}>Olvidé mi contraseña</button>
+            </div>
             <button type="submit" className="submit" disabled={loading}>{loading ? <span className="spinner" /> : 'Iniciar sesión'}</button>
           </form>
           <div className="divider" />
-          <p className="help">¿Olvidaste tu contraseña? <button type="button" className="help__link">Recuperar acceso</button></p>
+          <p className="help">¿No tienes cuenta? <button type="button" className="help__link" disabled={loading}>Regístrate</button></p>
         </div>
       </div>
       <footer className="login__footer">© {currentYear} Sistema de Gestión de Cotizaciones</footer>
+      </section>
     </div>
   )
 }
