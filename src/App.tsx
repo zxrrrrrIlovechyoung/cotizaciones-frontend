@@ -3,26 +3,31 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 
 import { useAuth } from './stores/auth'
 import ClientesView from './views/ClientesView'
-import ConfiguracionView from './views/ConfiguracionView'
 import CotizacionesView from './views/CotizacionesView'
 import LoginView from './views/LoginView'
 import MiCuentaView from './views/MiCuentaView'
+import RegistroView from './views/RegistroView'
+import RecuperacionView from './views/RecuperacionView'
 
-function RequireAuth({ children }: { children: ReactNode }) {
-  const { token } = useAuth()
+export function RequireAuth({ children }: { children: ReactNode }) {
+  const { token, ready } = useAuth()
   const location = useLocation()
 
+  if (!ready) return <div role="status" style={{ padding: 24 }}>Cargando sesión…</div>
   if (!token) return <Navigate to="/login" replace state={{ from: location }} />
 
   return children
 }
 
 export default function App() {
-  const { token } = useAuth()
+  const { token, ready } = useAuth()
+  if (!ready) return <div role="status" style={{ padding: 24 }}>Cargando sesión…</div>
 
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/cotizaciones" replace />} />
+      <Route path="/registro" element={token ? <Navigate to="/cotizaciones" replace /> : <RegistroView />} />
+      <Route path="/recuperar-contrasena" element={token ? <Navigate to="/cotizaciones" replace /> : <RecuperacionView />} />
       <Route
         path="/login"
         element={token ? <Navigate to="/cotizaciones" replace /> : <LoginView />}
@@ -40,14 +45,6 @@ export default function App() {
         element={
           <RequireAuth>
             <ClientesView />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/configuracion"
-        element={
-          <RequireAuth>
-            <ConfiguracionView />
           </RequireAuth>
         }
       />

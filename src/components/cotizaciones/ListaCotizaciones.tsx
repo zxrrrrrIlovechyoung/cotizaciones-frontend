@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 
-import { dinero, fecha, type Cotizacion } from '@/data/cotizaciones'
+import { dinero, estaArchivada, fecha, type Cotizacion } from '@/data/cotizaciones'
 import { listarCotizaciones } from '@/services/cotizaciones'
 
 const PAGE_SIZE = 10
@@ -22,12 +22,16 @@ const MESES = [
 const mesActual = new Date().getMonth() + 1
 const anioActual = new Date().getFullYear()
 
-export default function ListaCotizaciones({ onAbrir }: { onAbrir: (cotizacion: Cotizacion) => void; onNueva: () => void }) {
+export default function ListaCotizaciones({ archivo, onCambiarArchivo, onAbrir }: {
+  archivo: boolean
+  onCambiarArchivo: (archivo: boolean) => void
+  onAbrir: (cotizacion: Cotizacion) => void
+}) {
   const [cotizaciones, setCotizaciones] = useState<Cotizacion[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
-  const [mes, setMes] = useState(String(mesActual))
-  const [anio, setAnio] = useState(String(anioActual))
+  const [mes, setMes] = useState(archivo ? '' : String(mesActual))
+  const [anio, setAnio] = useState(archivo ? '' : String(anioActual))
   const [folio, setFolio] = useState('')
   const [razonSocial, setRazonSocial] = useState('')
   const [rfc, setRfc] = useState('')
@@ -63,7 +67,7 @@ export default function ListaCotizaciones({ onAbrir }: { onAbrir: (cotizacion: C
     const cliente = normalizar(nombreCliente)
 
     return cotizaciones.filter((c) => {
-      if (c.estado === 'Eliminada') return false
+      if (c.estado === 'Eliminada' || estaArchivada(c) !== archivo) return false
       if (mes && obtenerMes(c.fechaCreacion) !== Number(mes)) return false
       if (anio && obtenerAnio(c.fechaCreacion) !== Number(anio)) return false
       if (folioFiltro && !normalizar(c.folio).includes(folioFiltro)) return false
@@ -72,14 +76,25 @@ export default function ListaCotizaciones({ onAbrir }: { onAbrir: (cotizacion: C
       if (cliente && !normalizar(c.nombreCliente || c.atencionA || c.nombreComercial).includes(cliente)) return false
       return true
     })
-  }, [anio, cotizaciones, folio, mes, nombreCliente, razonSocial, rfc])
+  }, [anio, archivo, cotizaciones, folio, mes, nombreCliente, razonSocial, rfc])
   const totalPaginas = Math.max(1, Math.ceil(filtradas.length / PAGE_SIZE))
   const paginaActual = Math.min(pagina, totalPaginas)
   const visibles = filtradas.slice((paginaActual - 1) * PAGE_SIZE, paginaActual * PAGE_SIZE)
 
+  function cambiarSeccion(siguienteArchivo: boolean) {
+    if (archivo === siguienteArchivo) return
+    onCambiarArchivo(siguienteArchivo)
+    setMes(siguienteArchivo ? '' : String(mesActual))
+    setAnio(siguienteArchivo ? '' : String(anioActual))
+    setPagina(1)
+  }
+
   return (
     <div className="ws">
-      <div className="ws__head ws__head--sinAccion"><div className="ws__titles"><h2>Cotizaciones</h2><p>Refacciones, mano de obra y servicios para clientes del taller</p></div></div>
+      <div className="cotizaciones-secciones" role="group" aria-label="Secciones de cotizaciones">
+        <button type="button" className="ui-btn" aria-pressed={!archivo} onClick={() => cambiarSeccion(false)}>Activas</button>
+        <button type="button" className="ui-btn" aria-pressed={archivo} onClick={() => cambiarSeccion(true)}>Archivo</button>
+      </div>
       <div className="filtros filtros--cotizaciones">
         <label className="filtro">
           <span>Mes</span>
@@ -117,11 +132,22 @@ export default function ListaCotizaciones({ onAbrir }: { onAbrir: (cotizacion: C
         {cargando ? <div className="vacio"><i className="mdi mdi-loading mdi-spin" /><div className="vacio__titulo">Cargando cotizaciones…</div></div>
           : error ? <div className="vacio"><i className="mdi mdi-alert-circle-outline" /><div className="vacio__titulo">Ocurrió un problema</div><div className="vacio__texto">{error}</div></div>
           : visibles.length === 0 ? <div className="vacio"><i className="mdi mdi-package-variant-closed" /><div className="vacio__titulo">No hay cotizaciones que coincidan</div><div className="vacio__texto">Ajusta los filtros.</div></div>
-          : <div className="lista">{visibles.map((c, i) => <button key={c.id} className="fila fila--cotizacion" style={{ animationDelay: `${Math.min(i, 10) * 0.04}s` }} onClick={() => onAbrir(c)}><div className="fila__fecha"><span>Creación</span><strong>{fecha(c.fechaCreacion)}</strong></div><div className="fila__folio"><span>Folio</span><strong>{c.folio}</strong></div><div className="fila__cliente"><span>Razón social</span><strong>{c.razonSocial}</strong></div><div className="fila__rfc"><span>RFC</span><strong>{c.rfc}</strong></div><div className="fila__nombre"><span>Nombre</span><strong>{c.nombreCliente}</strong></div><div className="fila__montos"><div><span>Utilidad</span><strong>{dinero(c.utilidadEstimada, c.moneda)}</strong></div><div><span>Costo</span><strong>{dinero(c.costo, c.moneda)}</strong></div><div><span>Total</span><strong>{dinero(c.total, c.moneda)}</strong></div></div><i className="mdi mdi-chevron-right fila__chevron" /></button>)}</div>}
+          : <div className="lista">{visibles.map((c, i) => <button key={c.id} className="fila fila--cotizacion" style={{ animationDelay: `${Math.min(i, 10) * 0.04}s` }} onClick={() => onAbrir(c)}><div className="fila__folio"><span>Folio</span><strong>{c.folio}</strong>{etiquetaVigencia(c) && <small className={c.proximaAVencer ? 'fila__vigencia fila__vigencia--alerta' : 'fila__vigencia'}>{etiquetaVigencia(c)}</small>}</div><div className="fila__fecha"><span>Creación</span><strong>{fecha(c.fechaCreacion)}</strong></div><div className="fila__cliente"><span>Razón social</span><strong>{c.razonSocial}</strong></div><div className="fila__rfc"><span>RFC</span><strong>{c.rfc}</strong></div><div className="fila__nombre"><span>Nombre</span><strong>{c.nombreCliente}</strong></div><div className="fila__montos"><div><span>Utilidad</span><strong>{dinero(c.utilidadEstimada, c.moneda)}</strong></div><div><span>Costo</span><strong>{dinero(c.costo, c.moneda)}</strong></div><div><span>Total</span><strong>{dinero(c.total, c.moneda)}</strong></div></div><i className="mdi mdi-chevron-right fila__chevron" /></button>)}</div>}
         {!cargando && !error && totalPaginas > 1 && <Paginacion paginaActual={paginaActual} totalPaginas={totalPaginas} total={filtradas.length} onPagina={setPagina} />}
       </div>
     </div>
   )
+}
+
+function etiquetaVigencia(cotizacion: Cotizacion) {
+  const dias = cotizacion.diasParaVencer
+  if (cotizacion.estado === 'Archivada') return 'Archivada'
+  if (estaArchivada(cotizacion)) return 'Vencida'
+  if (!cotizacion.vigenciaHasta) return 'Sin vigencia'
+  if (!cotizacion.proximaAVencer) return null
+  if (dias === 0) return 'Vence hoy'
+  if (dias === 1) return 'Vence mañana'
+  return `Vence en ${dias} días`
 }
 
 function normalizar(value: string) {

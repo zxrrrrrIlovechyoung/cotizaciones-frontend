@@ -4,6 +4,7 @@
 // (FormularioCotizacion.tsx), así que un cliente nuevo aquí ya aparece allá.
 
 export interface ClienteRegistrado {
+  fechaAlta?: string
   idCliente: number
   nombreComercial: string
   tipoCliente: string
@@ -11,6 +12,15 @@ export interface ClienteRegistrado {
   correoContacto: string
   telefonoContacto: string
   atencionA: string
+}
+
+export interface CotizacionCliente {
+  id: number
+  folio: string
+  fechaCreacion: string
+  moneda: string
+  total: number
+  archivada: boolean
 }
 
 export const CLIENTES: ClienteRegistrado[] = [

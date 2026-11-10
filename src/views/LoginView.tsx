@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import '@/styles/login.css'
 import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
@@ -29,6 +30,15 @@ export default function LoginView() {
   const [password, setPassword] = useState('')
   const [errs, setErrs] = useState({ email: '', password: '' })
   const [loading, setLoading] = useState(false)
+  const [cookiesAccepted, setCookiesAccepted] = useState(() => localStorage.getItem('essential-cookie-notice-v1') === 'accepted')
+  const cookieButton = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (cookiesAccepted) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    cookieButton.current?.focus()
+    return () => { document.body.style.overflow = previousOverflow }
+  }, [cookiesAccepted])
   const [showPassword, setShowPassword] = useState(false)
   const [logoOk, setLogoOk] = useState(true)
   const [remember, setRemember] = useState(Boolean(rememberedEmail))
@@ -40,6 +50,7 @@ export default function LoginView() {
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
+    if (loading || !cookiesAccepted) return
     const nextErrs = {
       email: email.trim() ? '' : 'Correo obligatorio',
       password: password.trim() ? '' : 'Contraseña obligatoria',
@@ -72,7 +83,7 @@ export default function LoginView() {
   }
 
   return (
-    <div className="login login--modern" data-theme="light">
+    <div className="login login--modern" data-theme="light" inert={!cookiesAccepted}>
       <section className="login__visual" aria-label="Mercados financieros">
         {images.map((src, index) => <img key={src} src={src} alt="" className={index === activeImage ? 'is-visible' : ''} aria-hidden="true" />)}
         <div className="login__visual-shade" />
@@ -86,7 +97,7 @@ export default function LoginView() {
           <span className="login__eyebrow">TU ESPACIO DE TRABAJO</span>
           <h1 className="login__title">Bienvenido de nuevo</h1>
           <p className="login__subtitle">Ingresa a tu cuenta para continuar.</p>
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} aria-busy={loading}>
             <div className={`field ${errs.email ? 'field--error' : ''}`}>
               <div className="field__control">
                 <input value={email} type="email" placeholder="Usuario o correo electrónico" autoComplete="username" disabled={loading} onChange={(e) => { setEmail(e.target.value); clearError('email') }} />
@@ -104,16 +115,19 @@ export default function LoginView() {
             </div>
             <div className="login__options">
               <label className="remember"><input checked={remember} type="checkbox" disabled={loading} onChange={(e) => setRemember(e.target.checked)} /><span>Recordar correo</span></label>
-              <button type="button" className="help__link" disabled={loading}>Olvidé mi contraseña</button>
+              <button type="button" className="help__link" disabled={loading}
+                onClick={() => navigate('/recuperar-contrasena', { state: { correo: email.trim() } })}>Olvidé mi contraseña</button>
             </div>
-            <button type="submit" className="submit" disabled={loading}>{loading ? <span className="spinner" /> : 'Iniciar sesión'}</button>
+            <button type="submit" className="submit" disabled={loading}>{loading ? <><span className="spinner" aria-hidden="true" /><span role="status">Iniciando sesión…</span></> : 'Iniciar sesión'}</button>
           </form>
           <div className="divider" />
-          <p className="help">¿No tienes cuenta? <button type="button" className="help__link" disabled={loading}>Regístrate</button></p>
+          <p className="help">¿No tienes cuenta? <button type="button" className="help__link" disabled={loading} onClick={() => navigate('/registro')}>Regístrate</button></p>
         </div>
       </div>
       <footer className="login__footer">© {currentYear} Sistema de Gestión de Cotizaciones</footer>
       </section>
+      {loading && <div className="login__loading" role="status" aria-live="polite"><span className="login__loading-spinner" aria-hidden="true" /><span>Validando acceso…</span></div>}
+      {!cookiesAccepted && createPortal(<div className="login__cookie-backdrop"><section className="login__cookie-notice" role="dialog" aria-modal="true" aria-labelledby="cookie-notice-title" aria-describedby="cookie-notice-description" onKeyDown={(event) => { if (event.key === 'Tab') { event.preventDefault(); cookieButton.current?.focus() } }}><div><h2 id="cookie-notice-title">Cookies de sesión</h2><p id="cookie-notice-description">Para iniciar sesión necesitas aceptar las cookies esenciales. Nos permiten mantener tu sesión y proteger el acceso a tu cuenta. No utilizamos cookies publicitarias ni de analítica.</p></div><button ref={cookieButton} type="button" onClick={() => { localStorage.setItem('essential-cookie-notice-v1', 'accepted'); setCookiesAccepted(true) }}>Aceptar y continuar</button></section></div>, document.body)}
     </div>
   )
 }

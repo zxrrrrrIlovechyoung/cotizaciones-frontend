@@ -5,11 +5,14 @@
 // El sistema solo genera cotizaciones, no lleva un historial de flujo de venta:
 // cada una queda Aceptada al crearse, y "Eliminada" es un borrado suave (no aparece
 // en la lista, pero no se pierde el registro).
-export type EstadoCotizacion = 'Aceptada' | 'Eliminada'
+export type EstadoCotizacion = 'Aceptada' | 'Archivada' | 'Eliminada'
 
 export type EstadoCompra = 'Agendada' | 'Comprada' | 'Cancelada' | null
 
 export interface Partida {
+  precioUnitarioCompra?: number
+  porcentajeDescuento?: number
+  tieneImagen?: [boolean, boolean]
   id: number
   numeroPartida: number
   descripcion: string
@@ -24,6 +27,18 @@ export interface Partida {
 }
 
 export interface Cotizacion {
+  diasParaVencer?: number | null
+  proximaAVencer?: boolean
+  idCliente?: number | null
+  correoContacto?: string
+  telefonoContacto?: string
+  preciosIncluyenIva?: boolean
+  porcentajeIva?: number
+  porcentajeAnticipo?: number | null
+  tiempoEntrega?: string
+  condicionesPago?: string
+  notasComerciales?: string
+  metodosPago?: string
   id: number
   folio: string
   version: number
@@ -46,10 +61,14 @@ export interface Cotizacion {
   partidas: Partida[]
 }
 
+export const estaArchivada = (cotizacion: Cotizacion) =>
+  cotizacion.estado === 'Archivada' || (cotizacion.diasParaVencer ?? 0) < 0
+
 // Estilos por estado. "Eliminada" solo se usa para filtrar la lista, nunca se
 // muestra como badge (una cotización eliminada no aparece en ningún lado).
 export const ESTADOS: Record<EstadoCotizacion, { bg: string; color: string; label?: string }> = {
   Aceptada: { bg: 'var(--success-bg)', color: 'var(--success)' },
+  Archivada: { bg: 'var(--bg-soft)', color: 'var(--muted)' },
   Eliminada: { bg: 'var(--danger-bg)', color: 'var(--danger)' },
 }
 
@@ -72,6 +91,8 @@ export const fecha = (valor: string) =>
 /* ───────────────── Formulario de alta ───────────────── */
 
 export interface PartidaForm {
+  origenId?: number
+  imagenes?: [File | null, File | null]
   tipoPartida: 'Producto' | 'Servicio'
   estadoArticulo: 'Nuevo' | 'Reacondicionado' | 'Usado'
   sku: string
@@ -102,8 +123,8 @@ export interface CotizacionForm {
   vigenciaHasta: string
   moneda: string
   preciosIncluyenIva: boolean
-  porcentajeIva: number
-  porcentajeAnticipo: number | ''
+  porcentajeIva: number | string
+  porcentajeAnticipo: number | string
   tiempoEntrega: string
   condicionesPago: string
   notasComerciales: string
@@ -157,7 +178,7 @@ export const METODOS_PAGO_PREDEFINIDOS = [
 export const toTitleCase = (s: string) =>
   String(s ?? '').replace(/(^|\s)(\p{L})/gu, (_, sep: string, letra: string) => sep + letra.toUpperCase())
 
-export const capitalizar = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s)
+export const capitalizar = (s: string) => s.replace(/\p{L}/u, (letra) => letra.toUpperCase())
 
 // Formato "773 185 1363": bloques de 3-3-4.
 export const formatTel = (v: string) => {

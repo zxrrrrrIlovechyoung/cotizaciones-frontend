@@ -1,9 +1,13 @@
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import axios from 'axios'
+import { useCallback, useEffect, useState } from 'react'
 
+import AlertaExito from '@/components/AlertaExito'
 import AppShell from '@/components/AppShell'
+import EditarDatosComerciales from '@/components/EditarDatosComerciales'
+import EditarInformacionCuenta from '@/components/EditarInformacionCuenta'
+import FotoPerfil from '@/components/FotoPerfil'
+import { formatTel } from '@/data/cotizaciones'
 import api from '@/services/api'
+import { obtenerLogoCuenta, obtenerPerfilCuenta, type PerfilCuenta } from '@/services/perfilCuenta'
 import { useAuth } from '@/stores/auth'
 
 interface Perfil {
@@ -13,16 +17,26 @@ interface Perfil {
   created_at?: string
 }
 
+function DatoCuenta({ etiqueta, valor }: { etiqueta: string; valor: string }) {
+  return (
+    <div>
+      <dt>{etiqueta}</dt>
+      <dd className={valor ? undefined : 'cuenta__datoVacio'}>{valor || 'Sin registrar'}</dd>
+    </div>
+  )
+}
+
 export default function MiCuentaView() {
-  const { user, logout } = useAuth()
-  const navigate = useNavigate()
+  const { user } = useAuth()
   const [perfil, setPerfil] = useState<Perfil | null>(user)
-  const [actual, setActual] = useState('')
-  const [nueva, setNueva] = useState('')
-  const [confirmar, setConfirmar] = useState('')
-  const [errP, setErrP] = useState<Record<string, string>>({})
-  const [guardandoP, setGuardandoP] = useState(false)
-  const [avisoP, setAvisoP] = useState<{ texto: string; ok: boolean } | null>(null)
+  const [perfilCuenta, setPerfilCuenta] = useState<PerfilCuenta | null | undefined>(undefined)
+  const [errorPerfilCuenta, setErrorPerfilCuenta] = useState(false)
+  const [logo, setLogo] = useState('')
+  const [errorLogo, setErrorLogo] = useState(false)
+  const [editarInformacion, setEditarInformacion] = useState(false)
+  const [editarComercial, setEditarComercial] = useState(false)
+  const [confirmacion, setConfirmacion] = useState<'nombre' | 'comercial' | null>(null)
+  const cerrarExito = useCallback(() => setConfirmacion(null), [])
 
   // Datos frescos del usuario desde la API (incluye la fecha de alta). Si falla,
   // se queda con los datos de la sesión guardada.
@@ -37,6 +51,38 @@ export default function MiCuentaView() {
     }
   }, [])
 
+  useEffect(() => {
+    const controller = new AbortController()
+    let urlLogo = ''
+
+    async function cargarPerfilCuenta() {
+      let datos: PerfilCuenta | null
+      try {
+        datos = await obtenerPerfilCuenta(controller.signal)
+        if (controller.signal.aborted) return
+        setPerfilCuenta(datos)
+      } catch {
+        if (!controller.signal.aborted) setErrorPerfilCuenta(true)
+        return
+      }
+      if (!datos?.tieneLogo) return
+      try {
+        const imagen = await obtenerLogoCuenta(controller.signal)
+        if (controller.signal.aborted) return
+        urlLogo = URL.createObjectURL(imagen)
+        setLogo(urlLogo)
+      } catch {
+        if (!controller.signal.aborted) setErrorLogo(true)
+      }
+    }
+
+    void cargarPerfilCuenta()
+    return () => {
+      controller.abort()
+      if (urlLogo) URL.revokeObjectURL(urlLogo)
+    }
+  }, [])
+
   const nombre = perfil?.nombre ?? 'Usuario'
   const email = perfil?.email ?? 'Cuenta activa'
   const iniciales = nombre.split(' ').filter(Boolean).map((p) => p[0]).slice(0, 2).join('').toUpperCase()
@@ -44,98 +90,83 @@ export default function MiCuentaView() {
     ? new Date(perfil.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' })
     : null
 
-  function validarPassword() {
-    const e: Record<string, string> = {}
-    if (!actual) e.actual = 'Ingresa tu contraseña actual.'
-    if (nueva.length < 6) e.nueva = 'Debe tener al menos 6 caracteres.'
-    if (confirmar !== nueva) e.confirmar = 'Las contraseñas no coinciden.'
-    setErrP(e)
-    return Object.keys(e).length === 0
-  }
-
-  async function cambiarContrasena(ev: React.FormEvent) {
-    ev.preventDefault()
-    if (guardandoP || !validarPassword()) return
-    setGuardandoP(true)
-    setAvisoP(null)
-    try {
-      // skipAuthRedirect: un 401 aquí significa "contraseña actual incorrecta",
-      // no una sesión expirada, así que no debe cerrar la sesión.
-      await api.put('/auth/password', { actual, nueva }, { skipAuthRedirect: true })
-      setAvisoP({ texto: 'Contraseña actualizada correctamente.', ok: true })
-      setActual('')
-      setNueva('')
-      setConfirmar('')
-    } catch (err) {
-      let texto = 'No se pudo cambiar la contraseña. Intenta de nuevo.'
-      if (axios.isAxiosError(err)) {
-        if (err.response?.status === 401) texto = 'La contraseña actual es incorrecta.'
-        else if (err.response?.status === 400 && err.response.data?.error) texto = err.response.data.error as string
-      }
-      setAvisoP({ texto, ok: false })
-    } finally {
-      setGuardandoP(false)
-    }
-  }
-
-  function cerrarSesion() {
-    logout()
-    navigate('/login')
-  }
-
   return (
-    <AppShell>
+    <AppShell mostrarBarraSuperior={false}>
       <div className="ws">
-        <div className="ws__head ws__head--sinAccion"><div className="ws__titles"><h2>Mi cuenta</h2><p>Información de tu perfil y tu sesión</p></div></div>
-        <div className="ws__body">
+        <div className="ws__head ws__head--sinAccion"><div className="ws__titles"><h2>Mi cuenta</h2><p>Perfil y datos de tu actividad comercial</p></div></div>
+        <div className="ws__body cuenta__body">
           <div className="cuenta">
-            <section className="cuenta__card">
-              <div className="cuenta__perfil">
-                <div className="cuenta__avatar">{iniciales || <i className="mdi mdi-account-outline" />}</div>
-                <div className="cuenta__ident">
+            <section className="cuenta__card" aria-labelledby="informacion-cuenta">
+              <header className="cuenta__encabezado">
+                <h3 id="informacion-cuenta">Información de la cuenta</h3>
+                <button type="button" className="ui-btn cuenta__editar" onClick={() => setEditarInformacion(true)}>
+                  <i className="mdi mdi-pencil-outline" aria-hidden="true" /> Editar información
+                </button>
+              </header>
+              <div className="cuenta__identidad">
+                <FotoPerfil iniciales={iniciales} />
+                <div>
+                  <span className="cuenta__identidadEtiqueta">Nombre de usuario</span>
                   <strong>{nombre}</strong>
-                  <span>{email}</span>
-                  <span className="cuenta__rol">Administrador</span>
+                  <span className="cuenta__identidadEtiqueta">Correo electrónico</span>
+                  <p>{email}</p>
+                  {cuentaCreada && <small>Cuenta creada el {cuentaCreada}</small>}
                 </div>
               </div>
-              <div className="cuenta__datos">
-                <div><span>Correo</span><strong>{email}</strong></div>
-                {cuentaCreada ? <div><span>Cuenta creada</span><strong>{cuentaCreada}</strong></div> : null}
-              </div>
             </section>
 
-            <section className="cuenta__card">
-              <div className="cuenta__cardTitulo"><i className="mdi mdi-shield-lock-outline" /><span>Seguridad</span></div>
-              <p className="cuenta__nota">Cambia tu contraseña. Deberás ingresar la actual para confirmar.</p>
-              <form className="cuenta__form" noValidate onSubmit={cambiarContrasena}>
-                <label className="cuenta__field">
-                  <span>Contraseña actual</span>
-                  <input type="password" autoComplete="current-password" className={`ui-input ${errP.actual ? 'is-error' : ''}`} value={actual} onChange={(e) => setActual(e.target.value)} />
-                  {errP.actual ? <small className="cuenta__fieldErr">{errP.actual}</small> : null}
-                </label>
-                <label className="cuenta__field">
-                  <span>Nueva contraseña</span>
-                  <input type="password" autoComplete="new-password" className={`ui-input ${errP.nueva ? 'is-error' : ''}`} value={nueva} onChange={(e) => setNueva(e.target.value)} />
-                  {errP.nueva ? <small className="cuenta__fieldErr">{errP.nueva}</small> : null}
-                </label>
-                <label className="cuenta__field">
-                  <span>Confirmar nueva contraseña</span>
-                  <input type="password" autoComplete="new-password" className={`ui-input ${errP.confirmar ? 'is-error' : ''}`} value={confirmar} onChange={(e) => setConfirmar(e.target.value)} />
-                  {errP.confirmar ? <small className="cuenta__fieldErr">{errP.confirmar}</small> : null}
-                </label>
-                {avisoP ? <div className={`cuenta__aviso ${avisoP.ok ? 'is-ok' : 'is-error'}`}><i className={`mdi ${avisoP.ok ? 'mdi-check-circle-outline' : 'mdi-alert-circle-outline'}`} /> {avisoP.texto}</div> : null}
-                <button type="submit" className="ui-btn ui-btn--primary" disabled={guardandoP}>{guardandoP ? 'Guardando…' : 'Cambiar contraseña'}</button>
-              </form>
-            </section>
-
-            <section className="cuenta__card">
-              <div className="cuenta__cardTitulo"><i className="mdi mdi-logout" /><span>Sesión</span></div>
-              <p className="cuenta__nota">Cierra tu sesión en este dispositivo.</p>
-              <button type="button" className="ui-btn cuenta__logout" onClick={cerrarSesion}><i className="mdi mdi-logout" /> Cerrar sesión</button>
+            <section className="cuenta__card" aria-labelledby="datos-actividad">
+              <header className="cuenta__encabezado">
+                {logo
+                  ? <img className="cuenta__logo" src={logo} alt="Logo comercial registrado" onError={() => { setLogo(''); setErrorLogo(true) }} />
+                  : <i className="cuenta__icono mdi mdi-card-account-details-outline" aria-hidden="true" />}
+                <div>
+                  <h3 id="datos-actividad">{perfilCuenta?.tipo === 'Empresa' ? 'Datos de la empresa' : 'Datos comerciales'}</h3>
+                  <p>Información fiscal, de contacto e identidad comercial</p>
+                  {errorLogo && <p role="status">No se pudo cargar el logo comercial.</p>}
+                </div>
+                {perfilCuenta && <button type="button" className="ui-btn cuenta__editar" aria-label="Editar datos comerciales" onClick={() => setEditarComercial(true)}>
+                  <i className="mdi mdi-pencil-outline" aria-hidden="true" /> Editar datos
+                </button>}
+              </header>
+              {errorPerfilCuenta ? <p className="cuenta__nota" role="alert">No se pudieron cargar los datos de actividad.</p>
+                : perfilCuenta === undefined ? <p className="cuenta__nota" role="status">Cargando datos de actividad…</p>
+                : perfilCuenta === null ? <p className="cuenta__nota">Esta cuenta todavía no tiene datos de actividad registrados.</p>
+                : <div className="cuenta__comercial">
+                  <div className="cuenta__grupo">
+                    <h4>Identidad comercial</h4>
+                    <dl className="cuenta__datos">
+                      <DatoCuenta etiqueta={perfilCuenta.tipo === 'Empresa' ? 'Nombre comercial' : 'Nombre profesional o comercial'} valor={perfilCuenta.comercial} />
+                      <DatoCuenta etiqueta="Tipo de cuenta" valor={perfilCuenta.tipo} />
+                      {perfilCuenta.tipo === 'Empresa' && <DatoCuenta etiqueta="Razón social" valor={perfilCuenta.razonSocial} />}
+                      <DatoCuenta etiqueta="RFC" valor={perfilCuenta.rfc} />
+                    </dl>
+                  </div>
+                  <div className="cuenta__grupo">
+                    <h4>Contacto</h4>
+                    <dl className="cuenta__datos">
+                      <DatoCuenta etiqueta="Teléfono de contacto" valor={formatTel(perfilCuenta.telefono)} />
+                      <DatoCuenta etiqueta="Dirección comercial" valor={perfilCuenta.direccion} />
+                    </dl>
+                  </div>
+                </div>}
             </section>
           </div>
         </div>
       </div>
+      {editarInformacion && <EditarInformacionCuenta onCerrar={() => setEditarInformacion(false)} onGuardado={(nombreNuevo) => {
+        setPerfil((anterior) => anterior ? { ...anterior, nombre: nombreNuevo } : anterior)
+        setEditarInformacion(false)
+        setConfirmacion('nombre')
+      }} />}
+      {editarComercial && <EditarDatosComerciales onCerrar={() => setEditarComercial(false)} onGuardado={(datos) => {
+        setPerfilCuenta(datos)
+        setEditarComercial(false)
+        setConfirmacion('comercial')
+      }} />}
+      {confirmacion && <AlertaExito titulo={confirmacion === 'nombre' ? 'Nombre actualizado' : 'Datos comerciales actualizados'}
+        mensaje={confirmacion === 'nombre' ? 'Se guardó tu nombre de usuario.' : 'Se guardaron tus datos comerciales.'}
+        accion="Aceptar" onContinuar={cerrarExito} />}
     </AppShell>
   )
 }

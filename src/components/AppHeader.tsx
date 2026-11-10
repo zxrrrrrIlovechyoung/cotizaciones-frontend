@@ -8,11 +8,13 @@ interface AppHeaderProps {
   mostrarCrearCotizacion?: boolean
   contextual?: ReactNode
   accionAntesPerfil?: ReactNode
+  onIntentarCerrarSesion?: (cerrar: () => void) => void
+  integrado?: boolean
 }
 
-export default function AppHeader({ onCrearCotizacion, mostrarCrearCotizacion = true, contextual, accionAntesPerfil }: AppHeaderProps) {
+export default function AppHeader({ onCrearCotizacion, mostrarCrearCotizacion = true, contextual, accionAntesPerfil, onIntentarCerrarSesion, integrado = false }: AppHeaderProps) {
   const navigate = useNavigate()
-  const { user, logout } = useAuth()
+  const { user, logout, fotoPerfilUrl } = useAuth()
   const nombre = user?.nombre ?? 'Usuario'
   const email = user?.email ?? 'Cuenta activa'
   const [menuAbierto, setMenuAbierto] = useState(false)
@@ -47,12 +49,13 @@ export default function AppHeader({ onCrearCotizacion, mostrarCrearCotizacion = 
 
   function cerrarSesion() {
     setMenuAbierto(false)
-    logout()
-    navigate('/login')
+    const cerrar = () => { void logout() }
+    if (onIntentarCerrarSesion) onIntentarCerrarSesion(cerrar)
+    else cerrar()
   }
 
   return (
-    <header className="topbar">
+    <header className={integrado ? 'topbar topbar--integrada' : 'topbar'}>
       {contextual ? <div className="topbar__context">{contextual}</div> : null}
 
       <div className="topbar__actions">
@@ -78,7 +81,7 @@ export default function AppHeader({ onCrearCotizacion, mostrarCrearCotizacion = 
               <span>{email}</span>
             </div>
             <div className="topbar__avatar" title={nombre}>
-              <i className="mdi mdi-account-outline" />
+              {fotoPerfilUrl ? <img src={fotoPerfilUrl} alt="" /> : <i className="mdi mdi-account-outline" />}
             </div>
             <i className={`mdi mdi-chevron-down topbar__accountChevron ${menuAbierto ? 'is-open' : ''}`} />
           </button>

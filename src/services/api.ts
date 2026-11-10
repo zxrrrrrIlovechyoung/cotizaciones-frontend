@@ -11,10 +11,15 @@ declare module 'axios' {
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api',
+  withCredentials: true,
+  headers: { 'X-Requested-With': 'Cotizaciones' },
 })
 
+let accessToken: string | null = null
+export function setAccessToken(token: string | null) { accessToken = token }
+
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token')
+  const token = accessToken
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
